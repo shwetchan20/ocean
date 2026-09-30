@@ -1,0 +1,9 @@
+# Core API (always required)
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pydantic==2.11.7
+numpy==2.3.2
+
+# Optional: only needed to ingest a real NetCDF file at data/ocean.nc
+# (INCOIS LAS / Copernicus Marine downloads). The demo dataset works
+# without these. Install with: pip install -r requirements-netcdf.txt

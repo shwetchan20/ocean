@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OceanScope 3D — SIH26067</title>
+<link rel="stylesheet" href="/assets/style.css" />
+<script type="importmap">
+{"imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="eyebrow">INCOIS · Ocean Valley · SIH26067</div>
+    <h1>OceanScope <span>3D</span></h1>
+    <p>Browser-native 3D visualization of ocean model fields + in-situ instrument profiles</p>
+  </div>
+  <div class="header-right">
+    <div id="status" class="status">● DEMO DATA</div>
+    <button id="fullscreenBtn" title="Fullscreen">⛶</button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: layer + navigation controls -->
+  <aside class="panel controls">
+
+    <section>
+      <h2>Layers &amp; Model Variable Controls</h2>
+      <div class="layer-row" data-layer="temperature">
+        <span class="dot" style="background:#ff7a3b"></span>
+        <label><input type="checkbox" class="layerToggle" data-var="temperature" checked> Temperature</label>
+      </div>
+      <div class="layer-row" data-layer="salinity">
+        <span class="dot" style="background:#55d8ff"></span>
+        <label><input type="checkbox" class="layerToggle" data-var="salinity"> Salinity</label>
+      </div>
+      <div class="layer-row" data-layer="chlorophyll">
+        <span class="dot" style="background:#8be36b"></span>
+        <label><input type="checkbox" class="layerToggle" data-var="chlorophyll"> Chlorophyll-a</label>
+      </div>
+      <div class="layer-row" data-layer="currents">
+        <span class="dot" style="background:#e8e85c"></span>
+        <label><input type="checkbox" id="currentsToggle" checked> Current vectors</label>
+      </div>
+      <div class="layer-row" data-layer="isosurface">
+        <span class="dot" style="background:#c98bff"></span>
+        <label><input type="checkbox" id="isoToggle"> Isosurface / isotherm contours</label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Data Streams</h2>
+      <div class="layer-row"><label><input type="checkbox" id="modelToggle" checked> Model fields</label></div>
+      <div class="layer-row"><label><input type="checkbox" id="insituToggle" checked> In-situ observations</label></div>
+    </section>
+
+    <section>
+      <h2>View Navigation</h2>
+      <label>Vertical exaggeration
+        <input id="vertical" type="range" min="0.5" max="6" step="0.1" value="2.2">
+        <span id="verticalVal" class="val">2.2×</span>
+      </label>
+      <label>Layer opacity
+        <input id="opacity" type="range" min="0.05" max="1" step="0.05" value="0.75">
+        <span id="opacityVal" class="val">0.75</span>
+      </label>
+      <label>Time step animation</label>
+      <div class="row time-row">
+        <button id="prevTime">◀</button>
+        <button id="play">▶ Play</button>
+        <button id="nextTime">▶</button>
+      </div>
+      <input id="time" type="range" min="0" max="7" value="0">
+      <div id="timeLabel" class="muted small"></div>
+    </section>
+
+    <section>
+      <h2>Depth Slice Selector</h2>
+      <p class="muted small">Move a horizontal cut plane through the model</p>
+      <input id="depth" type="range" min="0" max="8" value="0">
+      <div id="depthLabel" class="depth-label">0 m</div>
+    </section>
+
+    <section>
+      <div class="row">
+        <button id="resetView">Reset view</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- CENTER: 3D viewport -->
+  <section class="viewport">
+    <div id="scene"></div>
+    <div id="liveCoords" class="live-coords">—</div>
+    <div class="hint">Drag to rotate · Scroll to zoom · Click an instrument marker</div>
+    <div class="colorbar-editor">
+      <div class="cb-row">
+        <label class="cb-label" id="cbTitle">Temperature (°C)</label>
+        <select id="palette">
+          <option value="thermal">Thermal</option>
+          <option value="viridis">Viridis-ish</option>
+          <option value="coolwarm">Cool–Warm</option>
+        </select>
+        <label class="cb-scale"><input type="checkbox" id="logScale"> log</label>
+      </div>
+      <div class="cb-row">
+        <span id="cbMin" class="cb-num">—</span>
+        <div class="gradient" id="cbGradient"></div>
+        <span id="cbMax" class="cb-num">—</span>
+      </div>
+      <div class="cb-row iso-controls" id="isoControls" hidden>
+        <label class="cb-label">Isosurface threshold</label>
+        <input id="isoThreshold" type="range" min="0" max="1" step="0.01" value="0.5">
+        <span id="isoThresholdVal" class="cb-num">—</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: selected asset + telemetry -->
+  <aside class="panel info">
+    <div class="card">
+      <div class="label">Selected Asset Telemetry &amp; Diagnostics</div>
+      <h2 id="obsTitle">No instrument selected</h2>
+      <div id="obsMeta" class="muted small">Click an Argo, Glider, CTD or BGC marker.</div>
+      <div class="chart-block">
+        <div class="chart-title">Temperature vs Depth</div>
+        <canvas id="chartTemp" width="320" height="160"></canvas>
+        <div class="legend-inline"><span class="sw" style="background:#55d8ff"></span>In-situ <span class="sw" style="background:#ff7a3b"></span>Model</div>
+      </div>
+      <div class="chart-block">
+        <div class="chart-title">Salinity vs Depth</div>
+        <canvas id="chartSal" width="320" height="160"></canvas>
+        <div class="legend-inline"><span class="sw" style="background:#8be36b"></span>In-situ <span class="sw" style="background:#c98bff"></span>Model</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Observation Filter</div>
+      <div id="filters" class="chips">
+        <button class="active" data-type="all">All</button>
+        <button data-type="Argo">Argo</button>
+        <button data-type="Glider">Glider</button>
+        <button data-type="CTD">CTD</button>
+        <button data-type="BGC">BGC</button>
+      </div>
+      <div id="obsList"></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Field Snapshot</div>
+      <div class="metrics">
+        <div><b id="minVal">—</b><span>Min</span></div>
+        <div><b id="maxVal">—</b><span>Max</span></div>
+        <div><b id="depthVal">0 m</b><span>Slice</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Data Status</div>
+      <div class="data-row"><span>Ocean model</span><b id="stModel">—</b></div>
+      <div class="data-row"><span>In-situ overlay</span><b id="stObs">—</b></div>
+      <div class="data-row"><span>NetCDF adapter</span><b id="stNetcdf">—</b></div>
+      <div class="data-row"><span>API</span><b id="stApi">—</b></div>
+    </div>
+  </aside>
+</main>
+
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>
